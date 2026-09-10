@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   :root{
     --paper: #F2E9D8;
@@ -118,6 +119,12 @@
   .p-feedback.err{ color: var(--copper-dark); }
 
   .order-items{ font-size: 12.5px; color: var(--espresso-soft); }
+
+  .chart-card{
+    background: var(--paper-light); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 18px 8px;
+  }
+  .chart-wrap{ position: relative; height: 220px; }
 
   @media (max-width: 720px){
     .shell{ flex-direction: column; }
@@ -238,19 +245,13 @@ function renderDashboard(data){
     </div>
 
     <section>
+      <h2>Ventas de los últimos 30 días</h2>
+      <div class="chart-card"><div class="chart-wrap"><canvas id="salesChart"></canvas></div></div>
+    </section>
+
+    <section>
       <h2>Evolución mensual</h2>
-      <table>
-        <thead><tr><th>Mes</th><th class="num">Pedidos</th><th class="num">Total</th></tr></thead>
-        <tbody>
-          ${data.months.map(m => `
-            <tr>
-              <td>${monthLabel(m.month)}</td>
-              <td class="num">${m.count}</td>
-              <td class="num">${fmt(m.total)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+      <div class="chart-card"><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></div>
     </section>
 
     <section>
@@ -288,6 +289,69 @@ function renderDashboard(data){
       </table>
     </section>
   `;
+
+  renderCharts(data);
+}
+
+let salesChartInstance = null;
+let monthlyChartInstance = null;
+
+function renderCharts(data){
+  Chart.defaults.font.family = "'Work Sans', sans-serif";
+  Chart.defaults.color = "#4A362A";
+
+  const last30 = data.days.slice(0, 30).slice().reverse();
+  const salesCtx = document.getElementById("salesChart");
+  if (salesChartInstance) salesChartInstance.destroy();
+  salesChartInstance = new Chart(salesCtx, {
+    type: "line",
+    data: {
+      labels: last30.map(d => d.day.slice(5)),
+      datasets: [{
+        label: "Ventas",
+        data: last30.map(d => d.total),
+        borderColor: "#B8672E",
+        backgroundColor: "rgba(184,103,46,0.12)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2.5,
+        pointBackgroundColor: "#B8672E"
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  const monthlyCtx = document.getElementById("monthlyChart");
+  const monthsAsc = data.months.slice().reverse();
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  monthlyChartInstance = new Chart(monthlyCtx, {
+    type: "bar",
+    data: {
+      labels: monthsAsc.map(m => monthLabel(m.month)),
+      datasets: [{
+        label: "Ventas",
+        data: monthsAsc.map(m => m.total),
+        backgroundColor: "#B8672E",
+        borderRadius: 6,
+        maxBarThickness: 46
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 }
 
 // ---------- Pedidos (detalle) ----------
