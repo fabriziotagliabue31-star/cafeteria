@@ -17,6 +17,7 @@
     --copper-dark: #93511F;
     --brass: #8A6D3E;
     --line: rgba(43,27,18,0.16);
+    --sidebar-w: 220px;
   }
   *{box-sizing:border-box;}
   body{
@@ -25,17 +26,46 @@
   }
   h1,h2,.display{ font-family: 'Fraunces', serif; margin:0; letter-spacing:-0.01em; }
   .mono{ font-family:'Space Mono', monospace; }
-  main{ max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
 
-  header{ margin-bottom: 30px; }
-  header .eyebrow{ font-size: 13.5px; color: var(--brass); margin-bottom: 6px; }
-  header h1{ font-size: 30px; }
+  .shell{ display:flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width: var(--sidebar-w); flex-shrink:0;
+    background: var(--espresso); color: var(--paper-light);
+    padding: 26px 16px; position: sticky; top:0; height: 100vh;
+  }
+  .sidebar .brand{
+    font-family:'Fraunces', serif; font-size: 20px; font-weight:600;
+    padding: 0 10px 22px; border-bottom: 1px solid rgba(255,255,255,0.14); margin-bottom: 18px;
+  }
+  .sidebar nav{ display:flex; flex-direction:column; gap: 4px; }
+  .sidebar button{
+    display:flex; align-items:center; gap:10px;
+    background:none; border:none; color: #D8CBB4;
+    font-family:'Work Sans', sans-serif; font-size: 14.5px; font-weight:500;
+    text-align:left; padding: 11px 12px; border-radius: 10px; cursor:pointer;
+  }
+  .sidebar button .dot{
+    width:6px; height:6px; border-radius:50%; background: transparent; flex-shrink:0;
+  }
+  .sidebar button:hover{ background: rgba(255,255,255,0.06); color: #fff; }
+  .sidebar button.active{ background: var(--copper); color: #fff; }
+  .sidebar button.active .dot{ background: #fff; }
+
+  /* ---------- Main content ---------- */
+  .content{ flex:1; padding: 36px 30px 80px; max-width: 820px; }
+
+  .page-title{ font-size: 26px; margin-bottom: 22px; }
 
   .state-msg{
     background: var(--paper-light); border: 1px solid var(--line);
     border-radius: 14px; padding: 40px 24px; text-align:center;
     color: var(--espresso-soft); font-size: 15px; margin-top: 20px;
   }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
 
   .cards{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
   .card{
@@ -46,6 +76,7 @@
   .card .value{ font-family:'Fraunces', serif; font-size: 30px; margin-top: 6px; }
 
   section{ margin-top: 34px; }
+  section:first-child{ margin-top: 0; }
   section h2{ font-size: 19px; margin-bottom: 14px; }
 
   table{ width:100%; border-collapse: collapse; background: var(--paper-light); border-radius: 12px; overflow:hidden; border: 1px solid var(--line); }
@@ -85,24 +116,50 @@
   .price-row .p-feedback{ font-size: 12px; min-width: 60px; text-align:right; flex-shrink:0; }
   .p-feedback.ok{ color: #3E6B4A; }
   .p-feedback.err{ color: var(--copper-dark); }
+
+  .order-items{ font-size: 12.5px; color: var(--espresso-soft); }
+
+  @media (max-width: 720px){
+    .shell{ flex-direction: column; }
+    .sidebar{
+      width: 100%; height:auto; position: static; padding: 16px;
+    }
+    .sidebar .brand{ padding-bottom: 12px; margin-bottom: 10px; }
+    .sidebar nav{ flex-direction: row; overflow-x:auto; gap: 6px; }
+    .sidebar button{ white-space:nowrap; }
+    .content{ padding: 24px 16px 60px; }
+    .cards{ grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <div class="eyebrow">Lex Coffee</div>
-    <h1>Panel de pedidos</h1>
-  </header>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">☕ Lex Coffee</div>
+    <nav>
+      <button class="nav-btn active" data-view="dashboard"><span class="dot"></span>Dashboard</button>
+      <button class="nav-btn" data-view="precios"><span class="dot"></span>Precios</button>
+      <button class="nav-btn" data-view="pedidos"><span class="dot"></span>Pedidos</button>
+    </nav>
+  </aside>
 
-  <div id="content">
-    <div class="state-msg">Cargando estadísticas…</div>
-  </div>
+  <main class="content">
+    <div id="view-dashboard" class="view active">
+      <h1 class="page-title">Dashboard</h1>
+      <div id="dashboardContent"><div class="state-msg">Cargando estadísticas…</div></div>
+    </div>
 
-  <section id="productsSection" style="display:none;">
-    <h2>Editar precios</h2>
-    <div id="productsContent"></div>
-  </section>
-</main>
+    <div id="view-precios" class="view">
+      <h1 class="page-title">Precios</h1>
+      <div id="productsContent"><div class="state-msg">Cargando productos…</div></div>
+    </div>
+
+    <div id="view-pedidos" class="view">
+      <h1 class="page-title">Pedidos</h1>
+      <div id="ordersContent"><div class="state-msg">Cargando pedidos…</div></div>
+    </div>
+  </main>
+</div>
 
 <script>
 function fmt(n){ return "$" + Math.round(n).toLocaleString("es-AR"); }
@@ -114,47 +171,53 @@ function monthLabel(monthStr){
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-async function loadStats(){
-  const params = new URLSearchParams(window.location.search);
-  const key = params.get("key");
-  const content = document.getElementById("content");
+function dateTimeLabel(iso){
+  const d = new Date(iso);
+  return d.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
-  if (!key){
-    content.innerHTML = `<div class="state-msg">Falta la clave de acceso en el link.</div>`;
-    return;
-  }
+// ---------- Navegación lateral ----------
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
+  });
+});
 
-  loadProducts(key);
-
+// ---------- Dashboard ----------
+async function loadStats(key){
+  const container = document.getElementById("dashboardContent");
   try {
     const res = await fetch(`/api/stats?key=${encodeURIComponent(key)}`);
     if (res.status === 403){
-      content.innerHTML = `<div class="state-msg">Acceso denegado. Revisá que el link tenga la clave correcta.</div>`;
+      container.innerHTML = `<div class="state-msg">Acceso denegado. Revisá que el link tenga la clave correcta.</div>`;
       return;
     }
     if (!res.ok){
-      content.innerHTML = `<div class="state-msg">No se pudieron cargar los datos. Probá de nuevo en un momento.</div>`;
+      container.innerHTML = `<div class="state-msg">No se pudieron cargar los datos. Probá de nuevo en un momento.</div>`;
       return;
     }
-
     const data = await res.json();
-    render(data);
+    renderDashboard(data);
+    renderOrders(data.recentOrders || []);
   } catch (err){
-    content.innerHTML = `<div class="state-msg">Error de conexión. Revisá tu internet e intentá de nuevo.</div>`;
+    container.innerHTML = `<div class="state-msg">Error de conexión. Revisá tu internet e intentá de nuevo.</div>`;
   }
 }
 
-function render(data){
-  const content = document.getElementById("content");
+function renderDashboard(data){
+  const container = document.getElementById("dashboardContent");
 
   if (data.totalOrders === 0){
-    content.innerHTML = `<div class="state-msg">Todavía no hay pedidos registrados.</div>`;
+    container.innerHTML = `<div class="state-msg">Todavía no hay pedidos registrados.</div>`;
     return;
   }
 
   const maxQty = Math.max(...data.topProducts.map(p => p.qty), 1);
 
-  content.innerHTML = `
+  container.innerHTML = `
     <div class="cards">
       <div class="card">
         <div class="label">Pedidos hoy</div>
@@ -227,6 +290,32 @@ function render(data){
   `;
 }
 
+// ---------- Pedidos (detalle) ----------
+function renderOrders(orders){
+  const container = document.getElementById("ordersContent");
+
+  if (orders.length === 0){
+    container.innerHTML = `<div class="state-msg">Todavía no hay pedidos registrados.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Fecha</th><th>Pedido</th><th class="num">Total</th></tr></thead>
+      <tbody>
+        ${orders.map(o => `
+          <tr>
+            <td style="white-space:nowrap">${dateTimeLabel(o.created_at)}</td>
+            <td class="order-items">${(o.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</td>
+            <td class="num">${fmt(o.total)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+// ---------- Precios ----------
 const CATEGORY_LABELS = {
   cafes: "Café & bebidas",
   desayunos: "Desayunos",
@@ -235,15 +324,11 @@ const CATEGORY_LABELS = {
 };
 
 async function loadProducts(key){
-  const section = document.getElementById("productsSection");
   const container = document.getElementById("productsContent");
-
   try {
     const res = await fetch('/api/products');
     if (!res.ok) throw new Error('No se pudieron cargar los productos');
     const products = await res.json();
-
-    section.style.display = "block";
 
     const byCategory = {};
     products.forEach(p => {
@@ -266,7 +351,6 @@ async function loadProducts(key){
       `).join("")}
     `).join("");
   } catch (err){
-    section.style.display = "block";
     container.innerHTML = `<div class="state-msg">No se pudieron cargar los productos.</div>`;
   }
 }
@@ -310,7 +394,19 @@ async function savePrice(id, key){
   }
 }
 
-loadStats();
+// ---------- Init ----------
+(function init(){
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (!key){
+    document.querySelector(".content").innerHTML = `<div class="state-msg">Falta la clave de acceso en el link.</div>`;
+    return;
+  }
+
+  loadStats(key);
+  loadProducts(key);
+})();
 </script>
 </body>
 </html>
