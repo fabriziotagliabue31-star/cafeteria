@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lex Coffee — Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #F2E9D8;
+    --paper-light: #FBF6EC;
+    --espresso: #2B1B12;
+    --espresso-soft: #4A362A;
+    --copper: #B8672E;
+    --copper-dark: #93511F;
+    --brass: #8A6D3E;
+    --line: rgba(43,27,18,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background: var(--paper); color: var(--espresso);
+    font-family: 'Work Sans', sans-serif;
+  }
+  h1,h2,.display{ font-family: 'Fraunces', serif; margin:0; letter-spacing:-0.01em; }
+  .mono{ font-family:'Space Mono', monospace; }
+  main{ max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  header{ margin-bottom: 30px; }
+  header .eyebrow{ font-size: 13.5px; color: var(--brass); margin-bottom: 6px; }
+  header h1{ font-size: 30px; }
+
+  .state-msg{
+    background: var(--paper-light); border: 1px solid var(--line);
+    border-radius: 14px; padding: 40px 24px; text-align:center;
+    color: var(--espresso-soft); font-size: 15px; margin-top: 20px;
+  }
+
+  .cards{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
+  .card{
+    background: var(--paper-light); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px;
+  }
+  .card .label{ font-size: 13px; color: var(--espresso-soft); }
+  .card .value{ font-family:'Fraunces', serif; font-size: 30px; margin-top: 6px; }
+
+  section{ margin-top: 34px; }
+  section h2{ font-size: 19px; margin-bottom: 14px; }
+
+  table{ width:100%; border-collapse: collapse; background: var(--paper-light); border-radius: 12px; overflow:hidden; border: 1px solid var(--line); }
+  th,td{ text-align:left; padding: 11px 14px; font-size: 14px; border-bottom: 1px solid var(--line); }
+  th{ font-weight:600; color: var(--espresso-soft); font-size: 12.5px; }
+  tr:last-child td{ border-bottom:none; }
+  td.num, th.num{ text-align:right; font-family:'Space Mono', monospace; }
+
+  .rank{ display:flex; align-items:center; gap:10px; }
+  .rank .bar-bg{ flex:1; height:6px; background: var(--line); border-radius: 4px; overflow:hidden; }
+  .rank .bar{ height:100%; background: var(--copper); border-radius:4px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Lex Coffee</div>
+    <h1>Panel de pedidos</h1>
+  </header>
+
+  <div id="content">
+    <div class="state-msg">Cargando estadísticas…</div>
+  </div>
+</main>
+
+<script>
+function fmt(n){ return "$" + Math.round(n).toLocaleString("es-AR"); }
+
+async function loadStats(){
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+  const content = document.getElementById("content");
+
+  if (!key){
+    content.innerHTML = `<div class="state-msg">Falta la clave de acceso en el link.</div>`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/stats?key=${encodeURIComponent(key)}`);
+    if (res.status === 403){
+      content.innerHTML = `<div class="state-msg">Acceso denegado. Revisá que el link tenga la clave correcta.</div>`;
+      return;
+    }
+    if (!res.ok){
+      content.innerHTML = `<div class="state-msg">No se pudieron cargar los datos. Probá de nuevo en un momento.</div>`;
+      return;
+    }
+
+    const data = await res.json();
+    render(data);
+  } catch (err){
+    content.innerHTML = `<div class="state-msg">Error de conexión. Revisá tu internet e intentá de nuevo.</div>`;
+  }
+}
+
+function render(data){
+  const content = document.getElementById("content");
+
+  if (data.totalOrders === 0){
+    content.innerHTML = `<div class="state-msg">Todavía no hay pedidos registrados.</div>`;
+    return;
+  }
+
+  const maxQty = Math.max(...data.topProducts.map(p => p.qty), 1);
+
+  content.innerHTML = `
+    <div class="cards">
+      <div class="card">
+        <div class="label">Pedidos hoy</div>
+        <div class="value">${data.today.count}</div>
+      </div>
+      <div class="card">
+        <div class="label">Total estimado hoy</div>
+        <div class="value">${fmt(data.today.total)}</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Últimos días</h2>
+      <table>
+        <thead><tr><th>Día</th><th class="num">Pedidos</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          ${data.days.map(d => `
+            <tr>
+              <td>${d.day}</td>
+              <td class="num">${d.count}</td>
+              <td class="num">${fmt(d.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Productos más pedidos</h2>
+      <table>
+        <tbody>
+          ${data.topProducts.map(p => `
+            <tr>
+              <td style="width:45%">${p.name}</td>
+              <td colspan="2">
+                <div class="rank">
+                  <div class="bar-bg"><div class="bar" style="width:${(p.qty / maxQty) * 100}%"></div></div>
+                  <span class="mono" style="font-size:13px">${p.qty}</span>
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+loadStats();
+</script>
+</body>
+</html>
