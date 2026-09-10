@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
     --paper: #F2E9D8;
@@ -297,61 +297,73 @@ let salesChartInstance = null;
 let monthlyChartInstance = null;
 
 function renderCharts(data){
-  Chart.defaults.font.family = "'Work Sans', sans-serif";
-  Chart.defaults.color = "#4A362A";
+  if (typeof Chart === "undefined"){
+    ["salesChart", "monthlyChart"].forEach(id => {
+      const canvas = document.getElementById(id);
+      if (canvas) canvas.parentElement.innerHTML = `<div class="state-msg" style="padding:16px; font-size:13px;">No se pudo cargar la librería de gráficos. El resto del panel funciona igual.</div>`;
+    });
+    return;
+  }
 
-  const last30 = data.days.slice(0, 30).slice().reverse();
-  const salesCtx = document.getElementById("salesChart");
-  if (salesChartInstance) salesChartInstance.destroy();
-  salesChartInstance = new Chart(salesCtx, {
-    type: "line",
-    data: {
-      labels: last30.map(d => d.day.slice(5)),
-      datasets: [{
-        label: "Ventas",
-        data: last30.map(d => d.total),
-        borderColor: "#B8672E",
-        backgroundColor: "rgba(184,103,46,0.12)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 2.5,
-        pointBackgroundColor: "#B8672E"
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
-        x: { grid: { display: false } }
-      }
-    }
-  });
+  try {
+    Chart.defaults.font.family = "'Work Sans', sans-serif";
+    Chart.defaults.color = "#4A362A";
 
-  const monthlyCtx = document.getElementById("monthlyChart");
-  const monthsAsc = data.months.slice().reverse();
-  if (monthlyChartInstance) monthlyChartInstance.destroy();
-  monthlyChartInstance = new Chart(monthlyCtx, {
-    type: "bar",
-    data: {
-      labels: monthsAsc.map(m => monthLabel(m.month)),
-      datasets: [{
-        label: "Ventas",
-        data: monthsAsc.map(m => m.total),
-        backgroundColor: "#B8672E",
-        borderRadius: 6,
-        maxBarThickness: 46
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
-        x: { grid: { display: false } }
+    const last30 = data.days.slice(0, 30).slice().reverse();
+    const salesCtx = document.getElementById("salesChart");
+    if (salesChartInstance) salesChartInstance.destroy();
+    salesChartInstance = new Chart(salesCtx, {
+      type: "line",
+      data: {
+        labels: last30.map(d => d.day.slice(5)),
+        datasets: [{
+          label: "Ventas",
+          data: last30.map(d => d.total),
+          borderColor: "#B8672E",
+          backgroundColor: "rgba(184,103,46,0.12)",
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2.5,
+          pointBackgroundColor: "#B8672E"
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
+          x: { grid: { display: false } }
+        }
       }
-    }
-  });
+    });
+
+    const monthlyCtx = document.getElementById("monthlyChart");
+    const monthsAsc = data.months.slice().reverse();
+    if (monthlyChartInstance) monthlyChartInstance.destroy();
+    monthlyChartInstance = new Chart(monthlyCtx, {
+      type: "bar",
+      data: {
+        labels: monthsAsc.map(m => monthLabel(m.month)),
+        datasets: [{
+          label: "Ventas",
+          data: monthsAsc.map(m => m.total),
+          backgroundColor: "#B8672E",
+          borderRadius: 6,
+          maxBarThickness: 46
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { ticks: { callback: v => fmt(v) }, grid: { color: "rgba(43,27,18,0.08)" } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  } catch (err){
+    console.error("Error al renderizar gráficos:", err);
+  }
 }
 
 // ---------- Pedidos (detalle) ----------
