@@ -437,12 +437,27 @@ function closeDrawer(){
 
 function sendToWhatsapp(){
   if (cartCount() === 0){ openDrawer(); return; }
-  const lines = Object.keys(cart).map(id => {
+
+  const items = Object.keys(cart).map(id => {
     const item = findItem(id);
-    const qty = cart[id];
-    return `${qty}x ${item.name} - ${fmt(item.price * qty)}`;
+    return { name: item.name, qty: cart[id], price: item.price };
   });
-  const message = `Hola! Quiero hacer este pedido en Lex Coffee:\n\n${lines.join("\n")}\n\nTotal: ${fmt(cartTotal())}\n\nRetiro en el local.`;
+  const total = cartTotal();
+
+  // Registra el pedido para las estadísticas del admin.
+  // No bloquea el envío por WhatsApp si falla (ej: sin internet, DB caída).
+  try {
+    fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, total, item_count: cartCount() })
+    }).catch(err => console.warn('No se pudo registrar el pedido', err));
+  } catch (err) {
+    console.warn('No se pudo registrar el pedido', err);
+  }
+
+  const lines = items.map(i => `${i.qty}x ${i.name} - ${fmt(i.price * i.qty)}`);
+  const message = `Hola! Quiero hacer este pedido en Lex Coffee:\n\n${lines.join("\n")}\n\nTotal: ${fmt(total)}\n\nRetiro en el local.`;
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
   window.open(url, "_blank");
 }
