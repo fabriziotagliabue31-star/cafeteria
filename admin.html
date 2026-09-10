@@ -57,6 +57,34 @@
   .rank{ display:flex; align-items:center; gap:10px; }
   .rank .bar-bg{ flex:1; height:6px; background: var(--line); border-radius: 4px; overflow:hidden; }
   .rank .bar{ height:100%; background: var(--copper); border-radius:4px; }
+
+  .cat-heading{
+    font-size: 12.5px; font-weight:600; color: var(--brass); text-transform: uppercase;
+    letter-spacing: 0.03em; margin: 18px 0 8px;
+  }
+  .cat-heading:first-child{ margin-top: 0; }
+  .price-row{
+    display:flex; align-items:center; gap: 12px;
+    background: var(--paper-light); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .price-row .p-name{ flex:1; font-size: 14.5px; font-weight: 500; }
+  .price-row .p-input-wrap{ display:flex; align-items:center; gap:8px; }
+  .price-row .p-input-wrap span{ font-size: 14px; color: var(--espresso-soft); }
+  .price-row input[type="number"]{
+    width: 92px; font-family:'Space Mono', monospace; font-size: 14px;
+    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: var(--espresso);
+  }
+  .price-row button{
+    background: var(--espresso); color: var(--paper-light); border:none;
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight:600; cursor:pointer;
+    flex-shrink:0;
+  }
+  .price-row button:disabled{ opacity: 0.5; cursor: default; }
+  .price-row .p-feedback{ font-size: 12px; min-width: 60px; text-align:right; flex-shrink:0; }
+  .p-feedback.ok{ color: #3E6B4A; }
+  .p-feedback.err{ color: var(--copper-dark); }
 </style>
 </head>
 <body>
@@ -69,6 +97,11 @@
   <div id="content">
     <div class="state-msg">Cargando estadísticas…</div>
   </div>
+
+  <section id="productsSection" style="display:none;">
+    <h2>Editar precios</h2>
+    <div id="productsContent"></div>
+  </section>
 </main>
 
 <script>
@@ -90,6 +123,8 @@ async function loadStats(){
     content.innerHTML = `<div class="state-msg">Falta la clave de acceso en el link.</div>`;
     return;
   }
+
+  loadProducts(key);
 
   try {
     const res = await fetch(`/api/stats?key=${encodeURIComponent(key)}`);
@@ -190,6 +225,89 @@ function render(data){
       </table>
     </section>
   `;
+}
+
+const CATEGORY_LABELS = {
+  cafes: "Café & bebidas",
+  desayunos: "Desayunos",
+  pasteleria: "Pastelería",
+  combos: "Combos"
+};
+
+async function loadProducts(key){
+  const section = document.getElementById("productsSection");
+  const container = document.getElementById("productsContent");
+
+  try {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error('No se pudieron cargar los productos');
+    const products = await res.json();
+
+    section.style.display = "block";
+
+    const byCategory = {};
+    products.forEach(p => {
+      if (!byCategory[p.category]) byCategory[p.category] = [];
+      byCategory[p.category].push(p);
+    });
+
+    container.innerHTML = Object.keys(byCategory).map(cat => `
+      <div class="cat-heading">${CATEGORY_LABELS[cat] || cat}</div>
+      ${byCategory[cat].map(p => `
+        <div class="price-row" id="row-${p.id}">
+          <div class="p-name">${p.name}</div>
+          <div class="p-input-wrap">
+            <span>$</span>
+            <input type="number" id="input-${p.id}" value="${p.price}" min="0" step="50">
+          </div>
+          <button onclick="savePrice('${p.id}', '${key}')">Guardar</button>
+          <span class="p-feedback" id="feedback-${p.id}"></span>
+        </div>
+      `).join("")}
+    `).join("");
+  } catch (err){
+    section.style.display = "block";
+    container.innerHTML = `<div class="state-msg">No se pudieron cargar los productos.</div>`;
+  }
+}
+
+async function savePrice(id, key){
+  const input = document.getElementById(`input-${id}`);
+  const feedback = document.getElementById(`feedback-${id}`);
+  const button = document.querySelector(`#row-${id} button`);
+  const price = Number(input.value);
+
+  if (isNaN(price) || price < 0){
+    feedback.textContent = "Precio inválido";
+    feedback.className = "p-feedback err";
+    return;
+  }
+
+  button.disabled = true;
+  feedback.textContent = "Guardando…";
+  feedback.className = "p-feedback";
+
+  try {
+    const res = await fetch(`/api/admin-products?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, price })
+    });
+
+    if (!res.ok){
+      feedback.textContent = "Error al guardar";
+      feedback.className = "p-feedback err";
+    } else {
+      feedback.textContent = "Guardado ✓";
+      feedback.className = "p-feedback ok";
+      setTimeout(() => { feedback.textContent = ""; }, 2500);
+    }
+  } catch (err){
+    feedback.textContent = "Sin conexión";
+    feedback.className = "p-feedback err";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 loadStats();
