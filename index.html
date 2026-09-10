@@ -319,44 +319,45 @@
 <script>
 const WHATSAPP_NUMBER = "5493764380293";
 
-const MENU = {
-  cafes: [
-    { id: "cafe-con-leche", name: "Café con leche", desc: "Con medialunas de manteca o grasa a elección de acompañamiento (no incluidas).", price: 3200 },
-    { id: "capuccino", name: "Capuccino", desc: "Espuma de leche con cacao amargo.", price: 3800 },
-    { id: "americano", name: "Café americano", desc: "Simple, doble o en jarrito.", price: 2800 },
-    { id: "te-mate", name: "Té / mate cocido", desc: "Saborizado a elección.", price: 2500 },
-    { id: "chocolatada", name: "Chocolatada caliente", desc: "Con canela a pedido.", price: 3200 },
-    { id: "licuado", name: "Licuado de frutas", desc: "Banana, frutilla o mixto, con agua o leche.", price: 3900 }
-  ],
-  desayunos: [
-    { id: "medialunas", name: "Medialunas (x2)", desc: "De manteca o grasa, recién horneadas.", price: 2200 },
-    { id: "tostado-jyq", name: "Tostado jamón y queso", desc: "En pan de miga o baguette.", price: 4200 },
-    { id: "tostado-completo", name: "Tostado completo", desc: "Jamón, queso, tomate y lechuga.", price: 4800 },
-    { id: "bowl-yogur", name: "Bowl de yogur", desc: "Con granola casera y fruta de estación.", price: 4500 }
-  ],
-  pasteleria: [
-    { id: "roll-canela", name: "Roll de canela", desc: "Con glaseado de queso crema.", price: 3500 },
-    { id: "torta-chocolate", name: "Porción torta de chocolate", desc: "Bizcocho húmedo, ganache de chocolate.", price: 3800 },
-    { id: "tartaleta-frutas", name: "Tartaleta de frutas", desc: "Crema pastelera y fruta fresca.", price: 3600 },
-    { id: "empanadilla-dulce", name: "Empanadilla dulce", desc: "Membrillo o batata.", price: 2800 },
-    { id: "empanadilla-salada", name: "Empanadilla salada", desc: "Jamón y queso o carne.", price: 2900 }
-  ],
-  combos: [
-    { id: "combo-al-paso", name: "Combo Al Paso", desc: "Café + medialunas (x2).", price: 4800, isCombo: true },
-    { id: "combo-ejecutivo", name: "Combo Ejecutivo", desc: "Café + tostado completo.", price: 7500, isCombo: true },
-    { id: "combo-dulce", name: "Combo Dulce", desc: "Café + roll de canela.", price: 6200, isCombo: true }
-  ]
-};
-
+let MENU = {}; // se completa al cargar, agrupado por categoría
 let cart = {}; // id -> qty
 
 function fmt(n){
   return "$" + n.toLocaleString("es-AR");
 }
 
+async function loadMenu(){
+  try {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error('No se pudo cargar el menú');
+    const products = await res.json();
+
+    MENU = {};
+    products.forEach(p => {
+      if (!MENU[p.category]) MENU[p.category] = [];
+      MENU[p.category].push({
+        id: p.id,
+        name: p.name,
+        desc: p.description || "",
+        price: Number(p.price),
+        isCombo: !!p.is_combo
+      });
+    });
+
+    renderMenu();
+    updateCartUI();
+  } catch (err) {
+    console.error(err);
+    document.querySelectorAll('.product-list').forEach(el => {
+      el.innerHTML = `<p style="font-size:13.5px; color:var(--espresso-soft)">No se pudo cargar el menú. Recargá la página.</p>`;
+    });
+  }
+}
+
 function renderMenu(){
   Object.keys(MENU).forEach(catId => {
     const container = document.querySelector(`#${catId} .product-list`);
+    if (!container) return;
     container.innerHTML = MENU[catId].map(item => `
       <div class="product">
         <div class="product-info">
@@ -471,8 +472,7 @@ document.querySelectorAll("#catNav button").forEach(btn => {
   });
 });
 
-renderMenu();
-updateCartUI();
+loadMenu();
 </script>
 
 </body>
