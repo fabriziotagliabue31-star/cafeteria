@@ -74,6 +74,13 @@
 <script>
 function fmt(n){ return "$" + Math.round(n).toLocaleString("es-AR"); }
 
+function monthLabel(monthStr){
+  const [y, m] = monthStr.split("-");
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  const label = date.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 async function loadStats(){
   const params = new URLSearchParams(window.location.search);
   const key = params.get("key");
@@ -122,14 +129,38 @@ function render(data){
         <div class="label">Total estimado hoy</div>
         <div class="value">${fmt(data.today.total)}</div>
       </div>
+      <div class="card">
+        <div class="label">Pedidos históricos</div>
+        <div class="value">${data.totalOrders}</div>
+      </div>
+      <div class="card">
+        <div class="label">Facturado histórico</div>
+        <div class="value">${fmt(data.totalRevenue)}</div>
+      </div>
     </div>
+
+    <section>
+      <h2>Evolución mensual</h2>
+      <table>
+        <thead><tr><th>Mes</th><th class="num">Pedidos</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          ${data.months.map(m => `
+            <tr>
+              <td>${monthLabel(m.month)}</td>
+              <td class="num">${m.count}</td>
+              <td class="num">${fmt(m.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
 
     <section>
       <h2>Últimos días</h2>
       <table>
         <thead><tr><th>Día</th><th class="num">Pedidos</th><th class="num">Total</th></tr></thead>
         <tbody>
-          ${data.days.map(d => `
+          ${data.days.slice(0, 30).map(d => `
             <tr>
               <td>${d.day}</td>
               <td class="num">${d.count}</td>
