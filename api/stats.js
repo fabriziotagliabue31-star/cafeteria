@@ -72,6 +72,12 @@ module.exports = async (req, res) => {
       .slice(0, 10)
       .map(([name, qty]) => ({ name, qty }));
 
+    const recentOrders = orders.slice(0, 50).map(o => ({
+      created_at: o.created_at,
+      items: o.items,
+      total: Number(o.total)
+    }));
+
     const today = new Date().toISOString().slice(0, 10);
     const todayStats = byDay[today] || { count: 0, total: 0 };
 
@@ -80,6 +86,7 @@ module.exports = async (req, res) => {
       days,
       months,
       topProducts,
+      recentOrders,
       totalOrders: orders.length,
       totalRevenue
     });
